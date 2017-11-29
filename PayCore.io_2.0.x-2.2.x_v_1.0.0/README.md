@@ -2,8 +2,8 @@
 - Contributors: PayCore.io
 - Version: 1.0.0
 - Tags: PayCore.io, Opencart, buy now, payment, payment for Opencart, payment gateway, cashless payments
-- Requires at least: 2.3.0.0
-- Tested up to: 2.3.0.0
+- Requires at least: 2.0.0.0
+- Tested up to: 2.2.0.0
 - Stable tag: 1.0.0
 - License: GPLv3
 - License URI: http://www.gnu.org/licenses/gpl-3.0.en.html
