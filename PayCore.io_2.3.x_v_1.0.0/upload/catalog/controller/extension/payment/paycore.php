@@ -4,7 +4,7 @@ class ControllerExtensionPaymentPaycore extends Controller {
     private $log;
     private $data = array();
     private static $ACTION = 'http://checkout.dev.paycore.io';
-    private static $IPN_URl = 'payment/paycore/status';
+    private static $IPN_URl = 'extension/payment/paycore/status';
     private static $RETURN_URL = 'checkout/success';
     private static $LOG_OFF = 0;
     private static $LOG_SHORT = 1;
@@ -41,13 +41,28 @@ class ControllerExtensionPaymentPaycore extends Controller {
         $this->logWrite('  POST:' . var_export($this->request->post, true), self::$LOG_FULL);
         $this->logWrite('  GET:' . var_export($this->request->get, true), self::$LOG_FULL);
 
-        // @TODO HMAC
-
         $body = json_decode(file_get_contents('php://input', 'rb'), true);
 
-        $this->logWrite('  POST BODY:' . var_export($body, true), self::$LOG_FULL);
+        if (!isset($body['data']) && !isset($body['signature'])) {
+            $this->logWrite('  POST BODY:' . var_export($body, true), self::$LOG_FULL);
+            $this->logWrite('BODY does not consist data or signature', self::$LOG_FULL);
 
-        $orderId = $body['reference'];
+            return;
+        }
+
+        $dataString = $body['data'];
+        $receivedSignature = $body['signature'];
+
+        // DON'T delete this block, be careful of fraud!!!
+        if (!$this->securityOrderCheck($dataString, $receivedSignature)) {
+            $this->logWrite('Error: Signature check failed. WARNING be careful of fraud', self::$LOG_SHORT);
+
+            return;
+        }
+
+        $data = self::getDecodedData($dataString);
+
+        $orderId = $data['reference'];
 
         $this->load->model('checkout/order');
         $this->order = $this->model_checkout_order->getOrder($orderId);
@@ -58,17 +73,21 @@ class ControllerExtensionPaymentPaycore extends Controller {
             return;
         }
 
-        $orderStatusAlias = self::$ORDER_STATUSES[$body['state']];
+        if ($data['state'] !== 'success' && $this->order['order_status_id'] === $this->config->get(self::$ORDER_STATUSES['success'])) {
+            return;
+        }
+
+        $orderStatusAlias = self::$ORDER_STATUSES[$data['state']];
 
         if (null !== $orderStatusAlias) {
             $this->model_checkout_order->addOrderHistory($this->order['order_id'],
                 $this->config->get($orderStatusAlias),
-                sprintf($this->language->get('text_comment_payment_status'), $this->order['order_id'], $body['state']),
+                sprintf($this->language->get('text_comment_payment_status'), $this->order['order_id'], $data['state']),
                 true);
         } else {
             $this->model_checkout_order->addOrderHistory($this->order['order_id'],
                 $this->config->get(self::$ORDER_STATUSES['failure']),
-                sprintf($this->language->get('text_comment_payment_status'), $this->order['order_id'], $body['state']),
+                sprintf($this->language->get('text_comment_payment_status'), $this->order['order_id'], $data['state']),
                 true);
         }
     }
@@ -102,14 +121,22 @@ class ControllerExtensionPaymentPaycore extends Controller {
         $publicKey           = $this->getPaycorePublicKey();
         $paymentDescription  = sprintf($this->language->get('text_payment_desc'), $order_info['order_id']);
 
-        $params = array(
+        $data = array(
             'amount'      => floatval($paymentAmount) * 100,
             'public_key'  => $publicKey,
             'currency'    => $currency,
             'description' => $paymentDescription,
             'reference'   => $order_info['order_id'],
-//            'ipn_url'     => $this->url->link(self::$IPN_URl),
+            'ipn_url'     => $this->url->link(self::$IPN_URl),
             'return_url'  => $this->url->link(self::$RETURN_URL),
+        );
+
+        $dataString = self::encodeData($data);
+        $signature = $this->generateDataSignature($data);
+
+        $params = array(
+            'data'      => $dataString,
+            'signature' => $signature,
         );
 
         $this->logWrite('Make payment form: ', self::$LOG_SHORT);
@@ -149,6 +176,64 @@ class ControllerExtensionPaymentPaycore extends Controller {
         return $this->config->get('paycore_test_mode') ?
             $this->config->get('paycore_test_public_key') :
             $this->config->get('paycore_public_key');
+    }
+    protected function getPaycoreSecretKey() {
+        return $this->config->get('paycore_test_mode') ?
+            $this->config->get('paycore_test_secret_key') :
+            $this->config->get('paycore_secret_key');
+    }
+
+    /**
+     * @param $data
+     * @return mixed
+     */
+    public function getDecodedData($data)
+    {
+        return json_decode(base64_decode($data), true, 1024);
+    }
+
+    /**
+     * @param $data
+     * @return string
+     */
+    public static function encodeData($data)
+    {
+        return base64_encode(json_encode($data));
+    }
+
+    /**
+     * @param $data
+     * @param $receivedSignature
+     * @return bool
+     */
+    public function securityOrderCheck($data, $receivedSignature)
+    {
+        $secretKey = $this->getPaycoreSecretKey();
+        $generatedSignature = base64_encode(sha1( $secretKey . $data . $secretKey, 1));
+
+        return $receivedSignature === $generatedSignature;
+    }
+
+    /**
+     * @param $data array
+     * @return string
+     */
+    public function generateDataSignature($data)
+    {
+        $secretKey = $this->getPaycoreSecretKey();
+        $encodedData = self::encodeData($data);
+        $signature = self::generateStringSignature($secretKey . $encodedData . $secretKey);
+
+        return $signature;
+    }
+
+    /**
+     * @param $string
+     * @return string
+     */
+    public static function generateStringSignature($string)
+    {
+        return base64_encode(sha1($string, 1));
     }
 }
 ?>
