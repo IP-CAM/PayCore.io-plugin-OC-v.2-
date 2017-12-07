@@ -19,7 +19,7 @@ Plugin version: 1.0.0.
 ## Alternative installation via Extension Installer
 **Notice:** you need to enable FTP first.
 1. Choose subdirectory based on your OpenCart version.
-2. Download only the PayCore.io.2.x.x-v-1.0.0.ocmod.zip file.
+2. Download only the PayCore.io.2.x.x-v-1.0.0.ocmod.zip file based on your OC store version [(check relases)](https://github.com/paycoreio/opencart/releases).
 3. Go to Extension->Extension installer in your OpenCart admin page.
 4. Click upload file and specify path to downloaded \*.ocmod.zip file.
 5. Click continue.
