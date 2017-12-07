@@ -3,7 +3,7 @@ class ControllerExtensionPaymentPaycore extends Controller {
     private $order;
     private $log;
     private $data = array();
-    private static $ACTION = 'http://checkout.dev.paycore.io';
+    private static $ACTION = 'https://checkout.paycore.io';
     private static $IPN_URl = 'extension/payment/paycore/status';
     private static $RETURN_URL = 'checkout/success';
     private static $LOG_OFF = 0;

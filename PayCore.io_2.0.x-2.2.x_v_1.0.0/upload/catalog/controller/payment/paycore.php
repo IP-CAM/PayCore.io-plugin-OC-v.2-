@@ -3,7 +3,7 @@ class ControllerPaymentPaycore extends Controller {
     private $order;
     private $log;
     private $data = array();
-    private static $ACTION = 'http://checkout.dev.paycore.io';
+    private static $ACTION = 'https://checkout.paycore.io';
     private static $IPN_URl = 'payment/paycore/status';
     private static $RETURN_URL = 'checkout/success';
     private static $LOG_OFF = 0;
@@ -96,10 +96,6 @@ class ControllerPaymentPaycore extends Controller {
                 sprintf($this->language->get('text_comment_payment_status'), $this->order['order_id'], $data['state']),
                 true);
         }
-    }
-
-    protected function getOrderStatusId() {
-
     }
 
     public function confirm() {
